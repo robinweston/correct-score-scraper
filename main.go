@@ -2,26 +2,42 @@ package main
 
 import (
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
 	"log"
+	"regexp"
+	"github.com/PuerkitoBio/goquery"
 )
 
-func ExampleScrape() {
-	fmt.Println("Runnig scrape")
-	doc, err := goquery.NewDocument("http://metalsucks.net")
+func reSubMatchMap(r *regexp.Regexp, str string) (map[string]string) {
+    match := r.FindStringSubmatch(str)
+    subMatchMap := make(map[string]string)
+    for i, name := range r.SubexpNames() {
+        if i != 0 {
+            subMatchMap[name] = match[i]
+        }
+    }
+	return subMatchMap
+}
+
+func extractTeams(s *goquery.Selection) string {
+	summary, _ := s.Attr("summary")
+	r := regexp.MustCompile(`shows (?P<Teams>.+) - Correct Score`)
+	return reSubMatchMap(r, summary)["Teams"]
+}
+
+func ScrapeScores() {
+	url := "http://sports.williamhill.com/bet/en-gb/betting/g/344/Correct+Score.html"
+	fmt.Println("Scraping", url)
+	doc, err := goquery.NewDocument(url)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Find the review items
-	doc.Find(".sidebar-reviews article .content-block").Each(func(i int, s *goquery.Selection) {
-		// For each item found, get the band and title
-		band := s.Find("a").Text()
-		title := s.Find("i").Text()
-		fmt.Printf("Review %d: %s - %s\n", i, band, title)
+	doc.Find("table[summary*='Correct Score']").Each(func(i int, s *goquery.Selection) {
+		teams := extractTeams(s)
+		fmt.Printf("%s\n", teams)
 	})
 }
 
 func main() {
-	ExampleScrape()
+	ScrapeScores()
 }
