@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"sort"
+	"strings"
+	"strconv"
 	"github.com/PuerkitoBio/goquery"
 )
 
@@ -24,6 +27,42 @@ func extractTeams(s *goquery.Selection) string {
 	return reSubMatchMap(r, summary)["Teams"]
 }
 
+type score struct {
+	Result string
+	Odds float64
+}
+
+type match struct {
+	Teams string
+	LikeliestScore score
+}
+
+func parseOdds(oddsText string) float64 {
+	r := regexp.MustCompile(`(?P<Num>\d+)/(?P<Dem>\d+)`)
+	matches := reSubMatchMap(r, oddsText)
+	num, _ := strconv.ParseFloat(matches["Num"], 64)
+	dem, _ := strconv.ParseFloat(matches["Dem"], 64)
+	return num / dem
+}
+
+func extractScores(parentTable *goquery.Selection) []score {
+	scores := []score{}
+	parentTable.Find("div.eventprice").Each(func(i int, s *goquery.Selection) {
+		
+		result := strings.TrimSpace(s.Closest("td").Next().Text())
+		oddsText := strings.TrimSpace(s.Text())
+		scores = append(scores, score{Result: result , Odds: parseOdds(oddsText)})
+	})
+	return scores
+}
+
+func findLikeliestScore(scores []score) score {
+	sort.Slice(scores, func(i, j int) bool {
+		return scores[i].Odds < scores[j].Odds
+	})
+	return scores[0]
+}
+
 func ScrapeScores() {
 	url := "http://sports.williamhill.com/bet/en-gb/betting/g/344/Correct+Score.html"
 	fmt.Println("Scraping", url)
@@ -34,7 +73,9 @@ func ScrapeScores() {
 
 	doc.Find("table[summary*='Correct Score']").Each(func(i int, s *goquery.Selection) {
 		teams := extractTeams(s)
-		fmt.Printf("%s\n", teams)
+		scores := extractScores(s)
+		likeliestScore := findLikeliestScore(scores)
+		fmt.Printf("%s %v\n", teams, likeliestScore)
 	})
 }
 

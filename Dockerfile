@@ -8,6 +8,6 @@ COPY Gopkg.toml Gopkg.lock ./
 RUN dep ensure -vendor-only -v
 
 COPY . .
-RUN go install -v ./...
+RUN go install -v
 
 CMD ["app"]
